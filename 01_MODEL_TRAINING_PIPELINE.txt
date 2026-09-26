@@ -1,0 +1,93 @@
+Model Training Pipeline for Explainable Android Malware Detection
+================================================================
+
+This document details the pipeline designed for training, evaluating, and explaining our baseline models (Random Forest, XGBoost, and Neural Network). 
+
+Purpose of this Pipeline:
+1. Establish strong baselines for malware detection on the original (clean) CICMalDroid2020 dataset.
+2. Ensure identical preprocessing and evaluation mechanics are used when we later introduce obfuscated data.
+3. Facilitate the generation of SHAP (SHapley Additive exPlanations) values to verify explanation consistency (stability) before and after obfuscation.
+
+---
+
+### Phase 1: Data Preprocessing & Splitting
+
+1. Target Variable: The `Label` column, where `1` = Malware, `0` = Benign.
+2. Train-Test Split: 
+   - A standard 80/20 or 70/30 split is applied. 
+   - Stratification is enforced to ensure the ratio of Benign to Malware remains consistent across both splits.
+3. Scaling / Normalization:
+   - Dynamic features represent frequencies (counts). 
+   - For Random Forest and XGBoost: Tree-based models are scale-invariant, meaning normalization is not strictly necessary. 
+   - For Neural Network: We must apply `StandardScaler` or `MinMaxScaler` to prevent features with high frequencies from dominating the weight updates. We apply scaling fitted *only* on the training data to prevent data leakage.
+
+---
+
+### Phase 2: Model Architecture & Training
+
+We train three diverse models to assess if robustness and explanation stability differ across model architectures.
+
+#### A. Random Forest (RF)
+- Why: A robust, ensemble tree-based method highly resistant to overfitting. It is traditionally very effective on discrete, tabular frequency data.
+- Hyperparameters (Baseline): 
+  - `n_estimators`: 100
+  - `max_depth`: None (allow nodes to expand until leaves are pure or contain `< min_samples_split`)
+  - `random_state`: 42 (crucial for reproducibility on obfuscated tests)
+
+#### B. XGBoost (Extreme Gradient Boosting)
+- Why: A state-of-the-art gradient boosting framework known for high performance, execution speed, and high accuracy on tabular datasets. It often outperforms RF.
+- Hyperparameters (Baseline):
+  - `n_estimators`: 100
+  - `learning_rate`: 0.1
+  - `max_depth`: 6
+  - `objective`: 'binary:logistic'
+  - `random_state`: 42
+
+#### C. Small Neural Network (Multilayer Perceptron - MLP)
+- Why: To contrast tree-based explainability with gradient-based (deep learning) explainability. Neural nets often pick up on different latent patterns but might be more brittle against adversarial/obfuscation changes.
+- Architecture:
+  - Input Layer: Matches the number of features (470).
+  - Hidden Layers: 2 or 3 dense layers (e.g., 128 -> 64 -> 32) with ReLU activation and Dropout (e.g., 0.2) to prevent overfitting.
+  - Output Layer: 1 neuron with Sigmoid activation.
+- Training:
+  - Optimizer: Adam
+  - Loss: Binary Crossentropy
+  - Early Stopping: Enabled (monitoring validation loss).
+
+#### Why We Chose These Settings
+- **n_estimators (100)**: We use 100 trees because it is a good sweet spot. It gives high accuracy without making the model too slow to run on a phone.
+- **max_depth (None for RF / 6 for XGBoost)**: For Random Forest, we let the trees grow as deep as they need to catch complex patterns. For XGBoost, we limit the depth to 6 to stop the model from simply memorizing the training data.
+- **learning_rate (0.1)**: This is a safe and standard learning speed for XGBoost. It helps the model learn steadily without making big, unpredictable jumps.
+- **NN Hidden Layers (128 -> 64 -> 32)**: This shrinking design forces the neural network to find the most important, big-picture patterns in the data, rather than getting stuck on small details.
+- **Dropout (0.2)**: This randomly turns off 20% of the network's connections during training. It forces the model to not rely too heavily on any single feature, which should help it handle obfuscated malware better.
+- **random_state (42)**: This locks in the randomness so we get the exact same results every time we run the code. This is very important because it ensures that any changes we see later are definitely caused by the malware obfuscation, not just random chance.
+
+---
+
+### Phase 3: Performance Evaluation
+
+Each trained model is evaluated on the Test Split using the following metrics:
+1. Accuracy: Overall correctness.
+2. Precision, Recall, and F1-Score: Crucial since malware detection often deals with class imbalance and the cost of False Negatives (missing malware) is high.
+3. Inference Time: Measured in milliseconds per sample (important for lightweight, on-device viability).
+4. Model Size: Measured in MBs.
+
+---
+
+### Phase 4: Explainability (SHAP Integration)
+
+This is the critical step for our objective. Once models are trained, we compute the feature attributions:
+
+1. Tree SHAP: Used for Random Forest and XGBoost. Extremely fast and exact for tree ensembles.
+2. Deep SHAP / Kernel SHAP: Used for the Neural Network.
+3. Explanation Output: For each sample in the test set, we generate a SHAP explanation vector (a score assigned to each of the 470 features indicating its contribution to the final prediction).
+
+---
+
+### Phase 5: Pipeline Replication for Obfuscation
+
+The exact same pipeline (including the same feature order, scaling weights, and trained models) will be applied to the dataset of **obfuscated** apps.
+
+We will then calculate our novel "Explanation-Stability Metric" by:
+1. Comparing the Top-K features identified by SHAP for a clean app vs. its obfuscated counterpart.
+2. Measuring the Rank Correlation (e.g., Spearman's rank) of the SHAP values to definitively prove whether a model's *reasoning* changes when facing obfuscation.
