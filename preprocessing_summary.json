@@ -1,0 +1,33 @@
+{
+    "original_total_cols": 50621,
+    "dropped_col_0": true,
+    "dropped_non_numeric_cols_count": 15,
+    "dropped_non_numeric_cols": [
+        28576,
+        30246,
+        28616,
+        36651,
+        36173,
+        28557,
+        31697,
+        36658,
+        31699,
+        32820,
+        32821,
+        28595,
+        36181,
+        36595,
+        36601
+    ],
+    "dropped_constant_cols_count": 18953,
+    "dropped_rare_cols_count": 28574,
+    "min_nonzero_count_threshold": 10,
+    "final_feature_count": 3078,
+    "final_samples": 11598,
+    "class_balance": {
+        "benign_0": 1795,
+        "malware_1": 9803
+    },
+    "feature_naming_convention": "feat_XXXXX (where XXXXX is the original 0-indexed column position, including column 0 which was dropped)",
+    "header_reference_file": "feature_vectors_static.csv.raw_header.txt"
+}

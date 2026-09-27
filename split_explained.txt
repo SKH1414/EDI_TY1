@@ -1,0 +1,21 @@
+# Script Explanations
+
+This document outlines the purpose of the foundational Python scripts used to set up the data and modeling pipeline.
+
+## 1. `config.py`
+**Purpose:** Centralized Configuration
+- Contains a single source of truth for configuration variables, specifically the random seed (`SEED = 42`).
+- **Why it's important:** By defining the seed here and importing it into all other scripts and notebooks, we guarantee absolute reproducibility. It ensures that the Random Forest, XGBoost, and Neural Network all initialize their random states identically without having to manually hardcode the seed in multiple files.
+
+## 2. `split_data.py`
+**Purpose:** Consistent Data Partitioning
+- Loads the full preprocessed dataset (`cleaned_dataset.parquet`).
+- Performs a **stratified split** to divide the data into Training (70%), Validation (15%), and Testing (15%) subsets. Stratification ensures that the highly imbalanced ratio of Malware to Benign samples is perfectly preserved across all three splits.
+- **Why it's important:** Instead of letting each model split the data on its own (which risks data leakage or unfair comparisons), this script saves the exact row indices of the splits into `split_indices.json`. All three Jupyter notebooks simply load these fixed indices, ensuring they are trained and evaluated on the exact same records.
+
+## 3. `create_files.py`
+**Purpose:** Infrastructure Automation
+- A programmatic generator script used to instantly build out the project's architecture.
+- It dynamically writes the raw code for `config.py` and `split_data.py` to the disk.
+- It leverages the `nbformat` library to systematically construct the three Jupyter Notebooks (`rf_pipeline.ipynb`, `xgboost_pipeline.ipynb`, and `nn_pipeline.ipynb`).
+- **Why it's important:** Writing Jupyter Notebooks (`.ipynb` files) by hand as raw JSON is highly error-prone. This script injects the precise model architectures, hyperparameter configurations, and evaluation logic into the notebooks cell-by-cell. It produces clean, unexecuted notebooks ready for the user to review and run, ensuring all constraints from the pipeline design are perfectly embedded without manual formatting errors.
